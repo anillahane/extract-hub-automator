@@ -13,6 +13,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CreateJobModal } from "@/components/CreateJobModal";
 import { useJobs, useExecuteJob, useDeleteJob } from "@/hooks/useJobs";
+import { usePermissions } from "@/hooks/usePermissions";
+import { toast } from "sonner";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -55,17 +57,30 @@ export default function Jobs() {
   const { data: jobs, isLoading } = useJobs();
   const executeJobMutation = useExecuteJob();
   const deleteJobMutation = useDeleteJob();
+  const { hasPermission } = usePermissions();
 
   const handleRunJob = (jobId: string) => {
+    if (!hasPermission('query_run')) {
+      toast.error("You don't have permission to execute jobs");
+      return;
+    }
     executeJobMutation.mutate(jobId);
   };
 
   const handleEditJob = (jobId: string) => {
+    if (!hasPermission('job_edit')) {
+      toast.error("You don't have permission to edit jobs");
+      return;
+    }
     console.log("Editing job:", jobId);
     // TODO: Implement job editing
   };
 
   const handleDeleteJob = (jobId: string) => {
+    if (!hasPermission('job_delete')) {
+      toast.error("You don't have permission to delete jobs");
+      return;
+    }
     if (confirm("Are you sure you want to delete this job?")) {
       deleteJobMutation.mutate(jobId);
     }
@@ -97,13 +112,15 @@ export default function Jobs() {
             Manage your data extraction jobs
           </p>
         </div>
-        <Button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-gradient-primary text-white shadow-elegant"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create New Job
-        </Button>
+        {hasPermission('job_create') && (
+          <Button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-gradient-primary text-white shadow-elegant"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create New Job
+          </Button>
+        )}
       </div>
 
       {/* Jobs Table */}
@@ -157,29 +174,35 @@ export default function Jobs() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRunJob(job.id)}
-                          disabled={job.latest_execution?.status === "running" || executeJobMutation.isPending}
-                        >
-                          <Play className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditJob(job.id)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteJob(job.id)}
-                          disabled={deleteJobMutation.isPending}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {hasPermission('query_run') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRunJob(job.id)}
+                            disabled={job.latest_execution?.status === "running" || executeJobMutation.isPending}
+                          >
+                            <Play className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {hasPermission('job_edit') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditJob(job.id)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {hasPermission('job_delete') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteJob(job.id)}
+                            disabled={deleteJobMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { useCreateJob } from "@/hooks/useJobs";
 import { useCredentials } from "@/hooks/useCredentials";
+import { usePermissions } from "@/hooks/usePermissions";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +70,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
   const [formData, setFormData] = useState<JobFormData>(initialFormData);
   const createJobMutation = useCreateJob();
   const { data: credentials } = useCredentials();
+  const { hasPermission } = usePermissions();
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -82,6 +85,17 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
   };
 
   const handleSubmit = async () => {
+    // Check permissions
+    if (!hasPermission('job_create')) {
+      toast.error("You don't have permission to create jobs");
+      return;
+    }
+
+    if (formData.runType === 'schedule' && !hasPermission('query_schedule')) {
+      toast.error("You don't have permission to schedule jobs");
+      return;
+    }
+
     try {
       const jobData = {
         name: formData.name,
@@ -98,11 +112,13 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
       };
 
       await createJobMutation.mutateAsync(jobData);
+      toast.success("Job created successfully!");
       onOpenChange(false);
       setCurrentStep(0);
       setFormData(initialFormData);
     } catch (error) {
       console.error('Failed to create job:', error);
+      toast.error("Failed to create job");
     }
   };
 

@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 
@@ -32,6 +33,7 @@ const App = () => (
                     <Route path="/jobs" element={<Jobs />} />
                     <Route path="/history" element={<History />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/admin" element={<Admin />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>

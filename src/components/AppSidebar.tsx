@@ -5,6 +5,7 @@ import {
   BarChart3,
   History,
   Settings,
+  Shield,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -12,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 
 const navigation = [
@@ -21,10 +23,15 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
+const adminNavigation = [
+  { name: "Admin", href: "/admin", icon: Shield },
+];
+
 export function AppSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { isAdmin } = usePermissions();
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -89,6 +96,32 @@ export function AppSidebar() {
             </NavLink>
           );
         })}
+        
+        {/* Admin Navigation */}
+        {isAdmin() && (
+          <>
+            {!isCollapsed && <div className="border-t border-sidebar-border my-2" />}
+            {adminNavigation.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  className={cn(
+                    "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+                    isActive
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent",
+                    isCollapsed && "justify-center"
+                  )}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                </NavLink>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Footer */}
