@@ -1,56 +1,54 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  console.log('Admin manage users function called');
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Create a Supabase client with the Auth context of the logged in user.
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
 
-    // Get the authorization header
-    const authHeader = req.headers.get('Authorization');
+    // Get the session or user object
+    const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      throw new Error('No authorization header');
+      throw new Error('No authorization header')
     }
 
-    // Verify the user is authenticated and get their info
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
     if (authError || !user) {
-      throw new Error('Invalid authentication');
+      throw new Error('Unauthorized')
     }
 
-    // Check if user is admin
-    const { data: adminCheck } = await supabaseClient
-      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    console.log('User authenticated:', user.id);
+
+    // Check if user has admin role
+    const { data: adminCheck } = await supabaseClient.rpc('has_role', {
+      _user_id: user.id,
+      _role: 'admin'
+    })
 
     if (!adminCheck) {
       return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+        JSON.stringify({ error: 'Forbidden: Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    console.log(`Admin action by user: ${user.id}, method: ${req.method}`);
-
     if (req.method === 'GET') {
-      // Get all users with their profiles and roles
+      // Fetch all user profiles with their roles
       const { data: profiles, error: profilesError } = await supabaseClient
         .from('profiles')
         .select(`
@@ -61,122 +59,111 @@ serve(async (req) => {
             assigned_by
           )
         `)
-        .order('created_at', { ascending: false });
 
       if (profilesError) {
-        throw profilesError;
+        throw profilesError
       }
 
       return new Response(
         JSON.stringify({ users: profiles }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      )
     }
 
     if (req.method === 'POST') {
-      const { action, user_id, role, status, display_name } = await req.json();
+      const body = await req.json()
+      const { action } = body
 
-      if (action === 'assign_role') {
-        // Assign role to user
-        const { error: roleError } = await supabaseClient
-          .from('user_roles')
-          .upsert({
-            user_id,
-            role,
-            assigned_by: user.id
-          }, {
-            onConflict: 'user_id,role'
-          });
+      switch (action) {
+        case 'assign_role': {
+          const { user_id, role } = body
+          
+          const { error } = await supabaseClient
+            .from('user_roles')
+            .insert({ user_id, role, assigned_by: user.id })
 
-        if (roleError) {
-          throw roleError;
+          if (error) {
+            throw error
+          }
+
+          return new Response(
+            JSON.stringify({ success: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         }
 
-        console.log(`Role ${role} assigned to user ${user_id} by admin ${user.id}`);
+        case 'remove_role': {
+          const { user_id, role } = body
+          
+          const { error } = await supabaseClient
+            .from('user_roles')
+            .delete()
+            .match({ user_id, role })
 
-        return new Response(
-          JSON.stringify({ message: 'Role assigned successfully' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+          if (error) {
+            throw error
+          }
 
-      if (action === 'remove_role') {
-        // Remove role from user
-        const { error: roleError } = await supabaseClient
-          .from('user_roles')
-          .delete()
-          .eq('user_id', user_id)
-          .eq('role', role);
-
-        if (roleError) {
-          throw roleError;
+          return new Response(
+            JSON.stringify({ success: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         }
 
-        console.log(`Role ${role} removed from user ${user_id} by admin ${user.id}`);
+        case 'update_status': {
+          const { user_id, status } = body
+          
+          const { error } = await supabaseClient
+            .from('profiles')
+            .update({ status })
+            .eq('user_id', user_id)
 
-        return new Response(
-          JSON.stringify({ message: 'Role removed successfully' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+          if (error) {
+            throw error
+          }
 
-      if (action === 'update_status') {
-        // Update user status
-        const { error: statusError } = await supabaseClient
-          .from('profiles')
-          .update({ status })
-          .eq('user_id', user_id);
-
-        if (statusError) {
-          throw statusError;
+          return new Response(
+            JSON.stringify({ success: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         }
 
-        console.log(`User ${user_id} status updated to ${status} by admin ${user.id}`);
+        case 'update_profile': {
+          const { user_id, display_name } = body
+          
+          const { error } = await supabaseClient
+            .from('profiles')
+            .update({ display_name })
+            .eq('user_id', user_id)
 
-        return new Response(
-          JSON.stringify({ message: 'User status updated successfully' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+          if (error) {
+            throw error
+          }
 
-      if (action === 'update_profile') {
-        // Update user profile
-        const { error: profileError } = await supabaseClient
-          .from('profiles')
-          .update({ display_name })
-          .eq('user_id', user_id);
-
-        if (profileError) {
-          throw profileError;
+          return new Response(
+            JSON.stringify({ success: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         }
 
-        console.log(`User ${user_id} profile updated by admin ${user.id}`);
-
-        return new Response(
-          JSON.stringify({ message: 'User profile updated successfully' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        default:
+          return new Response(
+            JSON.stringify({ error: 'Invalid action' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
       }
-
-      throw new Error('Invalid action');
     }
 
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
-      { 
-        status: 405, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
-    console.error('Admin user management error:', error);
+    console.error('Error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-});
+})
