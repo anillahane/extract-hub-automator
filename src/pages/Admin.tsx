@@ -10,6 +10,8 @@ import { Shield, Users, Key } from "lucide-react";
 export default function Admin() {
   const navigate = useNavigate();
   const { isAdmin, loading } = usePermissions();
+  
+  console.log('Admin page loaded! Path:', window.location.pathname, 'isAdmin:', isAdmin(), 'loading:', loading);
 
   useEffect(() => {
     if (!loading && !isAdmin()) {
