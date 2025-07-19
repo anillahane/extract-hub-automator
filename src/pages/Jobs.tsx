@@ -12,60 +12,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CreateJobModal } from "@/components/CreateJobModal";
+import { useJobs, useExecuteJob, useDeleteJob } from "@/hooks/useJobs";
 
-interface Job {
-  id: string;
-  name: string;
-  sourceType: string;
-  schedule: string;
-  lastRunStatus: "success" | "failed" | "running" | "pending";
-  lastRun?: string;
-}
-
-const mockJobs: Job[] = [
-  {
-    id: "1",
-    name: "Customer Data Sync",
-    sourceType: "PostgreSQL",
-    schedule: "Daily at 2:00 AM",
-    lastRunStatus: "success",
-    lastRun: "2 hours ago",
-  },
-  {
-    id: "2",
-    name: "Sales Report Extract",
-    sourceType: "Redshift",
-    schedule: "Weekly on Monday",
-    lastRunStatus: "failed",
-    lastRun: "1 day ago",
-  },
-  {
-    id: "3",
-    name: "Inventory Update",
-    sourceType: "Oracle",
-    schedule: "Every 4 hours",
-    lastRunStatus: "success",
-    lastRun: "30 minutes ago",
-  },
-  {
-    id: "4",
-    name: "Data Cleanup Script",
-    sourceType: "Python Script",
-    schedule: "Daily at 1:00 AM",
-    lastRunStatus: "running",
-    lastRun: "Running now",
-  },
-  {
-    id: "5",
-    name: "User Analytics Export",
-    sourceType: "PostgreSQL",
-    schedule: "Hourly",
-    lastRunStatus: "pending",
-    lastRun: "Never",
-  },
-];
-
-const getStatusBadge = (status: Job["lastRunStatus"]) => {
+const getStatusBadge = (status: string) => {
   switch (status) {
     case "success":
       return (
@@ -86,6 +35,7 @@ const getStatusBadge = (status: Job["lastRunStatus"]) => {
         </Badge>
       );
     case "pending":
+    case "draft":
       return (
         <Badge className="bg-muted text-muted-foreground">
           Pending
@@ -102,10 +52,12 @@ const getSourceIcon = (sourceType: string) => {
 
 export default function Jobs() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { data: jobs, isLoading } = useJobs();
+  const executeJobMutation = useExecuteJob();
+  const deleteJobMutation = useDeleteJob();
 
   const handleRunJob = (jobId: string) => {
-    console.log("Running job:", jobId);
-    // TODO: Implement job execution
+    executeJobMutation.mutate(jobId);
   };
 
   const handleEditJob = (jobId: string) => {
@@ -114,8 +66,25 @@ export default function Jobs() {
   };
 
   const handleDeleteJob = (jobId: string) => {
-    console.log("Deleting job:", jobId);
-    // TODO: Implement job deletion
+    if (confirm("Are you sure you want to delete this job?")) {
+      deleteJobMutation.mutate(jobId);
+    }
+  };
+
+  const formatSchedule = (job: any) => {
+    if (job.schedule_type === 'now') {
+      return 'Run manually';
+    }
+    return `${job.frequency} at ${job.schedule_time || 'default time'}`;
+  };
+
+  const getLastRunInfo = (job: any) => {
+    if (job.latest_execution) {
+      const timeDiff = new Date().getTime() - new Date(job.latest_execution.started_at).getTime();
+      const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+      return hoursAgo > 0 ? `${hoursAgo} hours ago` : 'Less than an hour ago';
+    }
+    return 'Never';
   };
 
   return (
@@ -158,53 +127,70 @@ export default function Jobs() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockJobs.map((job) => (
-                <TableRow key={job.id} className="hover:bg-muted/30">
-                  <TableCell className="font-medium">{job.name}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      {getSourceIcon(job.sourceType)}
-                      <span>{job.sourceType}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span>{job.schedule}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(job.lastRunStatus)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {job.lastRun}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRunJob(job.id)}
-                        disabled={job.lastRunStatus === "running"}
-                      >
-                        <Play className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditJob(job.id)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteJob(job.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4">
+                    Loading jobs...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : jobs && jobs.length > 0 ? (
+                jobs.map((job) => (
+                  <TableRow key={job.id} className="hover:bg-muted/30">
+                    <TableCell className="font-medium">{job.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        {getSourceIcon(job.source_type)}
+                        <span className="capitalize">{job.source_type}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span>{formatSchedule(job)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(job.latest_execution?.status || job.status)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {getLastRunInfo(job)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRunJob(job.id)}
+                          disabled={job.latest_execution?.status === "running" || executeJobMutation.isPending}
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditJob(job.id)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteJob(job.id)}
+                          disabled={deleteJobMutation.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No jobs created yet. Click "Create New Job" to get started.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

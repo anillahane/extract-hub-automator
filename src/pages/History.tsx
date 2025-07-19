@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Eye, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { useJobExecutions } from "@/hooks/useJobExecutions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -82,7 +83,7 @@ const mockHistory: HistoryItem[] = [
   },
 ];
 
-const getStatusBadge = (status: HistoryItem["status"]) => {
+const getStatusBadge = (status: string) => {
   switch (status) {
     case "success":
       return (
@@ -105,6 +106,12 @@ const getStatusBadge = (status: HistoryItem["status"]) => {
           Running
         </Badge>
       );
+    case "cancelled":
+      return (
+        <Badge className="bg-muted text-muted-foreground">
+          Cancelled
+        </Badge>
+      );
     default:
       return null;
   }
@@ -113,6 +120,7 @@ const getStatusBadge = (status: HistoryItem["status"]) => {
 export default function History() {
   const [selectedLogs, setSelectedLogs] = useState<string | null>(null);
   const [selectedJobName, setSelectedJobName] = useState<string>("");
+  const { data: executions, isLoading } = useJobExecutions();
 
   const handleViewLogs = (logs: string, jobName: string) => {
     setSelectedLogs(logs);
@@ -156,30 +164,46 @@ export default function History() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockHistory.map((item) => (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    Loading execution history...
+                  </TableCell>
+                </TableRow>
+              ) : executions && executions.length > 0 ? (
+                executions.map((item) => (
                 <TableRow key={item.id} className="hover:bg-muted/30">
-                  <TableCell className="font-medium">{item.jobName}</TableCell>
-                  <TableCell className="font-mono text-sm">{item.runId}</TableCell>
-                  <TableCell className="text-sm">{item.startTime}</TableCell>
+                  <TableCell className="font-medium">{item.job?.name}</TableCell>
+                  <TableCell className="font-mono text-sm">{item.run_id}</TableCell>
+                  <TableCell className="text-sm">{new Date(item.started_at).toLocaleString()}</TableCell>
                   <TableCell className="text-sm">
-                    {item.endTime || (
+                    {item.completed_at ? new Date(item.completed_at).toLocaleString() : (
                       <span className="text-muted-foreground italic">Running...</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{item.duration}</TableCell>
+                  <TableCell className="text-sm">
+                    {item.duration_ms ? `${(item.duration_ms / 1000).toFixed(1)}s` : 'N/A'}
+                  </TableCell>
                   <TableCell>{getStatusBadge(item.status)}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleViewLogs(item.logs, item.jobName)}
+                      onClick={() => handleViewLogs(item.logs || 'No logs available', item.job?.name || 'Unknown Job')}
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       View Logs
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No job executions found. Execute some jobs to see history here.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

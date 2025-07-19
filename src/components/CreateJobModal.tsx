@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { useCreateJob } from "@/hooks/useJobs";
+import { useCredentials } from "@/hooks/useCredentials";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +66,8 @@ const steps = [
 export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<JobFormData>(initialFormData);
+  const createJobMutation = useCreateJob();
+  const { data: credentials } = useCredentials();
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -77,12 +81,29 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Creating job:", formData);
-    // TODO: Implement job creation
-    onOpenChange(false);
-    setCurrentStep(0);
-    setFormData(initialFormData);
+  const handleSubmit = async () => {
+    try {
+      const jobData = {
+        name: formData.name,
+        description: formData.description,
+        source_type: formData.sourceType,
+        code: formData.code,
+        credential_id: formData.credentials || undefined,
+        schedule_type: formData.runType,
+        frequency: formData.frequency || undefined,
+        schedule_time: formData.time || undefined,
+        s3_bucket: formData.s3Bucket || undefined,
+        folder_path: formData.folderPath || undefined,
+        date_subfolders: formData.dateSubfolders
+      };
+
+      await createJobMutation.mutateAsync(jobData);
+      onOpenChange(false);
+      setCurrentStep(0);
+      setFormData(initialFormData);
+    } catch (error) {
+      console.error('Failed to create job:', error);
+    }
   };
 
   const updateFormData = (field: keyof JobFormData, value: any) => {
@@ -151,9 +172,17 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                   <SelectValue placeholder="Select credentials" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="prod-db">Production Database</SelectItem>
-                  <SelectItem value="staging-db">Staging Database</SelectItem>
-                  <SelectItem value="analytics-db">Analytics Database</SelectItem>
+                  {credentials && credentials.length > 0 ? (
+                    credentials.map((credential) => (
+                      <SelectItem key={credential.id} value={credential.id}>
+                        {credential.name} ({credential.type})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>
+                      No credentials available
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -304,11 +333,18 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
               Cancel
             </Button>
             {currentStep === steps.length - 1 ? (
-              <Button onClick={handleSubmit} className="bg-gradient-primary">
-                Create Job
+              <Button 
+                onClick={handleSubmit} 
+                className="bg-gradient-primary"
+                disabled={createJobMutation.isPending}
+              >
+                {createJobMutation.isPending ? "Creating..." : "Create Job"}
               </Button>
             ) : (
-              <Button onClick={handleNext}>
+              <Button 
+                onClick={handleNext}
+                disabled={currentStep === 1 && formData.sourceType !== 'python' && !formData.credentials}
+              >
                 Next
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>

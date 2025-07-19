@@ -14,13 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      credentials: {
+        Row: {
+          created_at: string
+          database_name: string
+          host: string
+          id: string
+          name: string
+          password: string
+          port: number
+          ssl_enabled: boolean
+          type: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          database_name: string
+          host: string
+          id?: string
+          name: string
+          password: string
+          port?: number
+          ssl_enabled?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          database_name?: string
+          host?: string
+          id?: string
+          name?: string
+          password?: string
+          port?: number
+          ssl_enabled?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      job_executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          job_id: string
+          logs: string | null
+          output_location: string | null
+          rows_processed: number | null
+          run_id: string
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          job_id: string
+          logs?: string | null
+          output_location?: string | null
+          rows_processed?: number | null
+          run_id: string
+          started_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          logs?: string | null
+          output_location?: string | null
+          rows_processed?: number | null
+          run_id?: string
+          started_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_executions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          code: string
+          created_at: string
+          credential_id: string | null
+          date_subfolders: boolean | null
+          description: string | null
+          folder_path: string | null
+          frequency: string | null
+          id: string
+          name: string
+          s3_bucket: string | null
+          schedule_time: string | null
+          schedule_type: string
+          source_type: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          credential_id?: string | null
+          date_subfolders?: boolean | null
+          description?: string | null
+          folder_path?: string | null
+          frequency?: string | null
+          id?: string
+          name: string
+          s3_bucket?: string | null
+          schedule_time?: string | null
+          schedule_type?: string
+          source_type: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          credential_id?: string | null
+          date_subfolders?: boolean | null
+          description?: string | null
+          folder_path?: string | null
+          frequency?: string | null
+          id?: string
+          name?: string
+          s3_bucket?: string | null
+          schedule_time?: string | null
+          schedule_type?: string
+          source_type?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "credentials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_run_id: {
+        Args: { job_name: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
