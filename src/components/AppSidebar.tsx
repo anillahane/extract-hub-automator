@@ -31,7 +31,10 @@ export function AppSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
   const { signOut, user } = useAuth();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, userRoles } = usePermissions();
+  
+  // Debug logging
+  console.log('AppSidebar - isAdmin():', isAdmin(), 'userRoles:', userRoles);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
