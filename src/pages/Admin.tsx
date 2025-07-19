@@ -17,7 +17,7 @@ export default function Admin() {
     if (!loading && !isAdmin()) {
       navigate("/");
     }
-  }, [isAdmin, loading, navigate]);
+  }, [loading, navigate, isAdmin]);
 
   if (loading) {
     return (
