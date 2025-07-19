@@ -6,6 +6,7 @@ import {
   History,
   Settings,
   Shield,
+  Users,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -20,6 +21,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Jobs", href: "/jobs", icon: Database },
   { name: "History", href: "/history", icon: History },
+  { name: "Users", href: "/users", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
