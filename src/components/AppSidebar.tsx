@@ -7,9 +7,12 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
@@ -21,6 +24,16 @@ const navigation = [
 export function AppSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+  const { signOut, user } = useAuth();
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error("Error signing out");
+    } else {
+      toast.success("Signed out successfully");
+    }
+  };
 
   return (
     <div
@@ -79,12 +92,24 @@ export function AppSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-2">
         {!isCollapsed && (
-          <div className="text-xs text-sidebar-foreground/60">
-            Data Extraction Hub v1.0
+          <div className="text-xs text-sidebar-foreground/60 truncate">
+            {user?.email}
           </div>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSignOut}
+          className={cn(
+            "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent",
+            isCollapsed && "justify-center px-2"
+          )}
+        >
+          <LogOut className="w-4 h-4" />
+          {!isCollapsed && <span className="ml-2">Sign Out</span>}
+        </Button>
       </div>
     </div>
   );
