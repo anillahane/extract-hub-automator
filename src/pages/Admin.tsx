@@ -11,7 +11,8 @@ export default function Admin() {
   const navigate = useNavigate();
   const { isAdmin, loading } = usePermissions();
   
-  console.log('Admin page loaded! Path:', window.location.pathname, 'isAdmin:', isAdmin(), 'loading:', loading);
+  console.log('Admin page rendering! Path:', window.location.pathname, 'isAdmin:', isAdmin(), 'loading:', loading);
+  console.log('Current page content: ADMIN PAGE - not dashboard');
 
   useEffect(() => {
     if (!loading && !isAdmin()) {
