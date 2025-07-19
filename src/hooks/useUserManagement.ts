@@ -23,18 +23,24 @@ export function useUserManagement() {
 
   const fetchUsers = async () => {
     try {
+      console.log('Fetching users from admin-manage-users function...');
       const { data, error } = await supabase.functions.invoke('admin-manage-users', {
         method: 'GET'
       });
 
+      console.log('Response from admin-manage-users:', { data, error });
+
       if (error) {
+        console.error('Supabase error:', error);
         throw error;
       }
 
       if (data?.error) {
+        console.error('Function error:', data.error);
         throw new Error(data.error);
       }
 
+      console.log('Users fetched successfully:', data?.users);
       setUsers(data?.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
