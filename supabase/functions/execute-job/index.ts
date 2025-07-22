@@ -107,11 +107,19 @@ Deno.serve(async (req) => {
 
     console.log('Execution record created:', execution.id)
 
-    // Execute the job based on source type
+    // Execute the job based on source type with 30-second timeout
     let result: any
     let logs = `${new Date().toISOString()} INFO: Starting job execution for ${job.name}\n`
 
+    // Create a timeout promise that rejects after 30 seconds
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Job execution timed out after 30 seconds')), 30000)
+    })
+
     try {
+      // Wrap the execution in a Promise.race with timeout
+      result = await Promise.race([
+        (async () => {
       if (job.source_type === 'python') {
         // For Python scripts, we'll simulate execution
         logs += `${new Date().toISOString()} INFO: Executing Python script\n`
@@ -179,6 +187,11 @@ Deno.serve(async (req) => {
         
         logs += `${new Date().toISOString()} INFO: Query executed successfully, ${result.rows_processed} rows returned\n`
       }
+
+      return result
+        })(),
+        timeoutPromise
+      ])
 
       // Generate output location
       let outputLocation = ''
