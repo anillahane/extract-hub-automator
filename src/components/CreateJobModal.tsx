@@ -195,7 +195,7 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="no-credentials" disabled>
                       No credentials available
                     </SelectItem>
                   )}
