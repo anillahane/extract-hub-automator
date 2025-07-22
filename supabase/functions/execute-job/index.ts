@@ -147,8 +147,24 @@ Deno.serve(async (req) => {
         logs += `${new Date().toISOString()} INFO: Connecting to ${credential.type} database at ${credential.host}\n`
         logs += `${new Date().toISOString()} INFO: Database: ${credential.database_name}\n`
         
-        // Simulate database connection and query execution
+        // Simulate database connection with potential failure
         await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        // Simulate credential validation - check for obviously wrong credentials
+        const hasValidCredentials = credential.username && credential.password && 
+                                   credential.host && credential.database_name &&
+                                   credential.username !== 'wrong_user' && 
+                                   credential.password !== 'wrong_password' &&
+                                   !credential.host.includes('invalid')
+        
+        if (!hasValidCredentials) {
+          throw new Error(`Connection failed: Invalid credentials for ${credential.type} database at ${credential.host}`)
+        }
+        
+        // Simulate connection timeout for unreachable hosts
+        if (credential.host.includes('unreachable') || credential.host.includes('timeout')) {
+          throw new Error(`Connection failed: Unable to reach database server at ${credential.host}:${credential.port}`)
+        }
         
         logs += `${new Date().toISOString()} INFO: Connection established\n`
         logs += `${new Date().toISOString()} INFO: Executing query: ${job.code.substring(0, 100)}...\n`
