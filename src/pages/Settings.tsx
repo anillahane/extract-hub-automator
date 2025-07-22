@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Edit, Trash2, Database, Shield, Key, Plus } from "lucide-react";
+import { Edit, Trash2, Database, Shield, Key, Plus, Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { useCredentials, useCreateCredential, useDeleteCredential, CreateCredentialData } from "@/hooks/useCredentials";
 
 const getTypeIcon = (type: string) => {
@@ -19,6 +20,7 @@ export default function Settings() {
   const createCredential = useCreateCredential();
   const deleteCredential = useDeleteCredential();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
   const [newCredential, setNewCredential] = useState<CreateCredentialData>({
     name: "",
     type: "postgresql",
@@ -28,6 +30,16 @@ export default function Settings() {
     username: "",
     password: "",
     ssl_enabled: true,
+  });
+
+  // Notification settings state
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailNotifications: true,
+    jobCompletions: true,
+    jobFailures: true,
+    systemAlerts: false,
+    weeklyReports: false,
+    emailAddress: "",
   });
 
   const handleCreateCredential = async () => {
@@ -57,6 +69,12 @@ export default function Settings() {
         console.error("Error deleting credential:", error);
       }
     }
+  };
+
+  const handleSaveNotifications = () => {
+    // Here you would typically save to backend
+    console.log("Saving notification settings:", notificationSettings);
+    setShowNotificationDialog(false);
   };
 
   return (
@@ -318,15 +336,141 @@ export default function Settings() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle className="text-base">Notification Settings</CardTitle>
+              <CardTitle className="text-base flex items-center space-x-2">
+                <Bell className="w-4 h-4 text-primary" />
+                <span>Notification Settings</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 Configure email notifications for job completions and failures.
               </p>
-              <Button variant="outline" className="mt-3">
-                Configure Notifications
-              </Button>
+              <Dialog open={showNotificationDialog} onOpenChange={setShowNotificationDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="mt-3">
+                    Configure Notifications
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Notification Settings</DialogTitle>
+                    <DialogDescription>
+                      Configure your email notifications and alert preferences.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6 py-4">
+                    {/* Email Address */}
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={notificationSettings.emailAddress}
+                        onChange={(e) => setNotificationSettings({ 
+                          ...notificationSettings, 
+                          emailAddress: e.target.value 
+                        })}
+                        placeholder="your.email@example.com"
+                      />
+                    </div>
+
+                    {/* Notification Toggles */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-base">Email Notifications</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Enable or disable all email notifications
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationSettings.emailNotifications}
+                          onCheckedChange={(checked) => setNotificationSettings({
+                            ...notificationSettings,
+                            emailNotifications: checked
+                          })}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Job Completions</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Get notified when data extraction jobs complete successfully
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationSettings.jobCompletions}
+                          onCheckedChange={(checked) => setNotificationSettings({
+                            ...notificationSettings,
+                            jobCompletions: checked
+                          })}
+                          disabled={!notificationSettings.emailNotifications}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Job Failures</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Get notified when data extraction jobs fail
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationSettings.jobFailures}
+                          onCheckedChange={(checked) => setNotificationSettings({
+                            ...notificationSettings,
+                            jobFailures: checked
+                          })}
+                          disabled={!notificationSettings.emailNotifications}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>System Alerts</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Get notified about system maintenance and updates
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationSettings.systemAlerts}
+                          onCheckedChange={(checked) => setNotificationSettings({
+                            ...notificationSettings,
+                            systemAlerts: checked
+                          })}
+                          disabled={!notificationSettings.emailNotifications}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Weekly Reports</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Receive weekly summary reports of your data extraction activities
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationSettings.weeklyReports}
+                          onCheckedChange={(checked) => setNotificationSettings({
+                            ...notificationSettings,
+                            weeklyReports: checked
+                          })}
+                          disabled={!notificationSettings.emailNotifications}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowNotificationDialog(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveNotifications}>
+                      Save Settings
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
