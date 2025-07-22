@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 export interface Credential {
   id: string;
   name: string;
-  type: 'postgresql' | 'redshift' | 'oracle' | 'mysql';
+  type: 'postgresql' | 'redshift' | 'oracle' | 'mysql' | 'mssql';
   host: string;
   port: number;
   database_name: string;
@@ -17,7 +17,7 @@ export interface Credential {
 
 export interface CreateCredentialData {
   name: string;
-  type: 'postgresql' | 'redshift' | 'oracle' | 'mysql';
+  type: 'postgresql' | 'redshift' | 'oracle' | 'mysql' | 'mssql';
   host: string;
   port: number;
   database_name: string;

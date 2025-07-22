@@ -32,6 +32,83 @@ export default function Settings() {
     ssl_enabled: true,
   });
 
+  // Get default port based on database type
+  const getDefaultPort = (type: string) => {
+    switch (type) {
+      case 'postgresql': return 5432;
+      case 'mysql': return 3306;
+      case 'oracle': return 1521;
+      case 'redshift': return 5439;
+      case 'mssql': return 1433;
+      default: return 5432;
+    }
+  };
+
+  // Handle database type change
+  const handleTypeChange = (type: 'postgresql' | 'redshift' | 'oracle' | 'mysql' | 'mssql') => {
+    setNewCredential({
+      ...newCredential,
+      type,
+      port: getDefaultPort(type)
+    });
+  };
+
+  // Get database-specific configuration
+  const getDatabaseConfig = (type: string) => {
+    switch (type) {
+      case 'postgresql':
+        return {
+          hostPlaceholder: 'localhost',
+          databasePlaceholder: 'postgres',
+          usernamePlaceholder: 'postgres',
+          helpText: 'Connect to your PostgreSQL database',
+          showSSL: true
+        };
+      case 'mysql':
+        return {
+          hostPlaceholder: 'localhost',
+          databasePlaceholder: 'mysql',
+          usernamePlaceholder: 'root',
+          helpText: 'Connect to your MySQL database',
+          showSSL: true
+        };
+      case 'oracle':
+        return {
+          hostPlaceholder: 'localhost',
+          databasePlaceholder: 'XE',
+          usernamePlaceholder: 'system',
+          helpText: 'Connect to your Oracle database using Service Name',
+          showSSL: false
+        };
+      case 'redshift':
+        return {
+          hostPlaceholder: 'redshift-cluster.xxxx.region.redshift.amazonaws.com',
+          databasePlaceholder: 'dev',
+          usernamePlaceholder: 'awsuser',
+          helpText: 'Connect to your Amazon Redshift cluster',
+          showSSL: true
+        };
+      case 'mssql':
+        return {
+          hostPlaceholder: 'localhost',
+          databasePlaceholder: 'master',
+          usernamePlaceholder: 'sa',
+          helpText: 'Connect to your Microsoft SQL Server',
+          showSSL: true
+        };
+      default:
+        return {
+          hostPlaceholder: 'localhost',
+          databasePlaceholder: 'database',
+          usernamePlaceholder: 'username',
+          helpText: 'Configure your database connection',
+          showSSL: true
+        };
+    }
+  };
+
+  const dbConfig = getDatabaseConfig(newCredential.type);
+
   // Notification settings state
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
@@ -110,7 +187,7 @@ export default function Settings() {
               <DialogHeader>
                 <DialogTitle>Add New Database Credential</DialogTitle>
                 <DialogDescription>
-                  Enter the details for your database connection.
+                  {dbConfig.helpText}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -132,7 +209,7 @@ export default function Settings() {
                   </Label>
                   <Select
                     value={newCredential.type}
-                    onValueChange={(value: any) => setNewCredential({ ...newCredential, type: value })}
+                    onValueChange={handleTypeChange}
                   >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select database type" />
@@ -141,7 +218,8 @@ export default function Settings() {
                       <SelectItem value="postgresql">PostgreSQL</SelectItem>
                       <SelectItem value="mysql">MySQL</SelectItem>
                       <SelectItem value="oracle">Oracle</SelectItem>
-                      <SelectItem value="redshift">Redshift</SelectItem>
+                      <SelectItem value="redshift">Amazon Redshift</SelectItem>
+                      <SelectItem value="mssql">Microsoft SQL Server</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -154,7 +232,7 @@ export default function Settings() {
                     value={newCredential.host}
                     onChange={(e) => setNewCredential({ ...newCredential, host: e.target.value })}
                     className="col-span-3"
-                    placeholder="localhost"
+                    placeholder={dbConfig.hostPlaceholder}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -165,9 +243,9 @@ export default function Settings() {
                     id="port"
                     type="number"
                     value={newCredential.port}
-                    onChange={(e) => setNewCredential({ ...newCredential, port: parseInt(e.target.value) || 5432 })}
+                    onChange={(e) => setNewCredential({ ...newCredential, port: parseInt(e.target.value) || getDefaultPort(newCredential.type) })}
                     className="col-span-3"
-                    placeholder="5432"
+                    placeholder={newCredential.port.toString()}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -179,7 +257,7 @@ export default function Settings() {
                     value={newCredential.database_name}
                     onChange={(e) => setNewCredential({ ...newCredential, database_name: e.target.value })}
                     className="col-span-3"
-                    placeholder="mydb"
+                    placeholder={dbConfig.databasePlaceholder}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -191,7 +269,7 @@ export default function Settings() {
                     value={newCredential.username}
                     onChange={(e) => setNewCredential({ ...newCredential, username: e.target.value })}
                     className="col-span-3"
-                    placeholder="username"
+                    placeholder={dbConfig.usernamePlaceholder}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -207,16 +285,18 @@ export default function Settings() {
                     placeholder="Password"
                   />
                 </div>
-                <div className="flex items-center space-x-2 justify-end">
-                  <Checkbox
-                    id="ssl"
-                    checked={newCredential.ssl_enabled}
-                    onCheckedChange={(checked) => setNewCredential({ ...newCredential, ssl_enabled: !!checked })}
-                  />
-                  <Label htmlFor="ssl" className="text-sm font-medium">
-                    Enable SSL
-                  </Label>
-                </div>
+                {dbConfig.showSSL && (
+                  <div className="flex items-center space-x-2 justify-end">
+                    <Checkbox
+                      id="ssl"
+                      checked={newCredential.ssl_enabled}
+                      onCheckedChange={(checked) => setNewCredential({ ...newCredential, ssl_enabled: !!checked })}
+                    />
+                    <Label htmlFor="ssl" className="text-sm font-medium">
+                      Enable SSL
+                    </Label>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
