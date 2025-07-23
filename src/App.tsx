@@ -11,6 +11,7 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Users from "./pages/Users";
+import Help from "./pages/Help";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 
@@ -36,6 +37,7 @@ const App = () => (
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/users" element={<Users />} />
                     <Route path="/admin" element={<Admin />} />
+                    <Route path="/help" element={<Help />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>
