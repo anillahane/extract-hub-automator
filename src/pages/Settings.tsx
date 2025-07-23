@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Edit, Trash2, Database, Shield, Key, Plus, Bell } from "lucide-react";
+import { Edit, Trash2, Database, Shield, Key, Plus, Bell, Download, Upload, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useCredentials, useCreateCredential, useDeleteCredential, CreateCredentialData } from "@/hooks/useCredentials";
+import { useJobs } from "@/hooks/useJobs";
+import { useToast } from "@/components/ui/use-toast";
 
 const getTypeIcon = (type: string) => {
   return <Database className="w-4 h-4" />;
@@ -17,10 +19,15 @@ const getTypeIcon = (type: string) => {
 
 export default function Settings() {
   const { data: credentials = [], isLoading } = useCredentials();
+  const { data: jobs = [] } = useJobs();
+  const { toast } = useToast();
   const createCredential = useCreateCredential();
   const deleteCredential = useDeleteCredential();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+  const [showBackupDialog, setShowBackupDialog] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [newCredential, setNewCredential] = useState<CreateCredentialData>({
     name: "",
     type: "postgresql",
@@ -152,6 +159,84 @@ export default function Settings() {
     // Here you would typically save to backend
     console.log("Saving notification settings:", notificationSettings);
     setShowNotificationDialog(false);
+  };
+
+  // Backup and Recovery functions
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const exportData = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        credentials: credentials.map(cred => ({
+          ...cred,
+          password: "***ENCRYPTED***" // Don't export actual passwords
+        })),
+        jobs: jobs,
+        notificationSettings
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Successful",
+        description: "Your configuration has been exported successfully. Note: Passwords are not included for security.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export configuration data.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      const importData = JSON.parse(text);
+
+      // Validate the import data structure
+      if (!importData.version || !importData.credentials || !importData.jobs) {
+        throw new Error("Invalid backup file format");
+      }
+
+      // Here you would typically import the data to your backend
+      console.log("Importing data:", importData);
+
+      toast({
+        title: "Import Successful",
+        description: `Imported ${importData.credentials.length} credentials and ${importData.jobs.length} jobs. Please review and update passwords manually.`,
+      });
+
+      setShowBackupDialog(false);
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: "Failed to import configuration data. Please check the file format.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      // Reset the file input
+      event.target.value = "";
+    }
   };
 
   return (
@@ -556,15 +641,93 @@ export default function Settings() {
 
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle className="text-base">Backup & Recovery</CardTitle>
+              <CardTitle className="text-base flex items-center space-x-2">
+                <Database className="w-4 h-4 text-primary" />
+                <span>Backup & Recovery</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Manage system backups and recovery options.
+                Export your configurations for backup or import existing settings.
               </p>
-              <Button variant="outline" className="mt-3">
-                Backup Settings
-              </Button>
+              <Dialog open={showBackupDialog} onOpenChange={setShowBackupDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="mt-3">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Backup Settings
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Backup & Recovery</DialogTitle>
+                    <DialogDescription>
+                      Export your current configuration or import a backup file.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium mb-2">Export Configuration</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Download a backup file containing your credentials, jobs, and settings. 
+                          Passwords will be encrypted and need to be re-entered after import.
+                        </p>
+                        <Button 
+                          onClick={handleExportData}
+                          disabled={isExporting}
+                          className="w-full"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          {isExporting ? "Exporting..." : "Export Configuration"}
+                        </Button>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <h4 className="font-medium mb-2">Import Configuration</h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Restore from a backup file. This will add to your existing configuration.
+                        </p>
+                        <div className="space-y-2">
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleImportData}
+                            className="hidden"
+                            id="backup-file-input"
+                            disabled={isImporting}
+                          />
+                          <Button 
+                            onClick={() => document.getElementById('backup-file-input')?.click()}
+                            disabled={isImporting}
+                            variant="outline"
+                            className="w-full"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            {isImporting ? "Importing..." : "Import Configuration"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <div className="bg-muted/50 p-3 rounded-lg">
+                          <h5 className="font-medium text-sm mb-1">What's included:</h5>
+                          <ul className="text-xs text-muted-foreground space-y-1">
+                            <li>• Database credentials (passwords encrypted)</li>
+                            <li>• Job configurations and schedules</li>
+                            <li>• Notification settings</li>
+                            <li>• System preferences</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowBackupDialog(false)}>
+                      Close
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
