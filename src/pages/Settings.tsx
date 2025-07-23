@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Edit, Trash2, Database, Shield, Key, Plus, Bell, Download, Upload, RefreshCw } from "lucide-react";
+import { Edit, Trash2, Database, Shield, Key, Plus, Bell, Download, Upload, RefreshCw, FileText, Search, Filter } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,8 +27,11 @@ export default function Settings() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
   const [showBackupDialog, setShowBackupDialog] = useState(false);
+  const [showLogsDialog, setShowLogsDialog] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedLogType, setSelectedLogType] = useState<string>("postgres");
+  const [logSearchTerm, setLogSearchTerm] = useState("");
   const [newCredential, setNewCredential] = useState<CreateCredentialData>({
     name: "",
     type: "postgresql",
@@ -200,6 +204,103 @@ export default function Settings() {
       });
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // Mock system logs data - in real app, this would come from your logging service
+  const mockSystemLogs = {
+    postgres: [
+      {
+        id: "1",
+        timestamp: "2025-07-23T15:18:57Z",
+        level: "INFO",
+        message: "Connection authorized: user=authenticator database=postgres",
+        source: "PostgreSQL"
+      },
+      {
+        id: "2", 
+        timestamp: "2025-07-23T15:18:49Z",
+        level: "LOG",
+        message: "Checkpoint complete: wrote 17 buffers (0.1%)",
+        source: "PostgreSQL"
+      },
+      {
+        id: "3",
+        timestamp: "2025-07-23T15:18:45Z", 
+        level: "ERROR",
+        message: "Connection failed: timeout exceeded",
+        source: "PostgreSQL"
+      }
+    ],
+    auth: [
+      {
+        id: "4",
+        timestamp: "2025-07-23T15:14:45Z",
+        level: "INFO", 
+        message: "Login successful: user authenticated",
+        source: "Auth"
+      },
+      {
+        id: "5",
+        timestamp: "2025-07-23T15:14:37Z",
+        level: "INFO",
+        message: "Token refreshed successfully",
+        source: "Auth"
+      }
+    ],
+    functions: [
+      {
+        id: "6",
+        timestamp: "2025-07-23T15:18:50Z",
+        level: "INFO",
+        message: "Function 'manage-credentials' executed successfully",
+        source: "Edge Functions"
+      },
+      {
+        id: "7", 
+        timestamp: "2025-07-23T15:18:45Z",
+        level: "ERROR",
+        message: "Function 'execute-job' timeout after 30s",
+        source: "Edge Functions"
+      }
+    ],
+    application: [
+      {
+        id: "8",
+        timestamp: "2025-07-23T15:18:55Z",
+        level: "INFO",
+        message: "User navigated to settings page",
+        source: "Application"
+      },
+      {
+        id: "9",
+        timestamp: "2025-07-23T15:18:30Z", 
+        level: "WARN",
+        message: "Job execution took longer than expected",
+        source: "Application"
+      }
+    ]
+  };
+
+  const getCurrentLogs = () => {
+    const logs = mockSystemLogs[selectedLogType as keyof typeof mockSystemLogs] || [];
+    return logs.filter(log => 
+      log.message.toLowerCase().includes(logSearchTerm.toLowerCase()) ||
+      log.level.toLowerCase().includes(logSearchTerm.toLowerCase())
+    );
+  };
+
+  const getLevelBadgeColor = (level: string) => {
+    switch (level.toUpperCase()) {
+      case 'ERROR':
+        return 'bg-destructive/10 text-destructive border-destructive/20';
+      case 'WARN':
+      case 'WARNING':
+        return 'bg-warning/10 text-warning border-warning/20';
+      case 'INFO':
+        return 'bg-primary/10 text-primary border-primary/20';
+      default:
+        return 'bg-muted/10 text-muted-foreground border-muted/20';
     }
   };
 
@@ -747,15 +848,162 @@ export default function Settings() {
 
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle className="text-base">System Logs</CardTitle>
+              <CardTitle className="text-base flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-primary" />
+                <span>System Logs</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                View and download system logs for troubleshooting.
+                View and analyze system logs for debugging and monitoring.
               </p>
-              <Button variant="outline" className="mt-3">
-                View System Logs
-              </Button>
+              <Dialog open={showLogsDialog} onOpenChange={setShowLogsDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="mt-3">
+                    <FileText className="w-4 h-4 mr-2" />
+                    View System Logs
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh]">
+                  <DialogHeader>
+                    <DialogTitle>System Logs</DialogTitle>
+                    <DialogDescription>
+                      Monitor and analyze system activity across different components.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    {/* Log Type Selection and Search */}
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <Label htmlFor="log-type" className="text-sm font-medium">
+                          Log Type
+                        </Label>
+                        <Select value={selectedLogType} onValueChange={setSelectedLogType}>
+                          <SelectTrigger id="log-type" className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="postgres">PostgreSQL</SelectItem>
+                            <SelectItem value="auth">Authentication</SelectItem>
+                            <SelectItem value="functions">Edge Functions</SelectItem>
+                            <SelectItem value="application">Application</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex-1">
+                        <Label htmlFor="log-search" className="text-sm font-medium">
+                          Search Logs
+                        </Label>
+                        <div className="relative mt-1">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="log-search"
+                            placeholder="Search messages, levels..."
+                            value={logSearchTerm}
+                            onChange={(e) => setLogSearchTerm(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Logs Table */}
+                    <div className="border rounded-lg max-h-96 overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[180px]">Timestamp</TableHead>
+                            <TableHead className="w-[80px]">Level</TableHead>
+                            <TableHead className="w-[120px]">Source</TableHead>
+                            <TableHead>Message</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getCurrentLogs().length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                No logs found for the selected criteria
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            getCurrentLogs().map((log) => (
+                              <TableRow key={log.id}>
+                                <TableCell className="font-mono text-xs">
+                                  {new Date(log.timestamp).toLocaleString()}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className={getLevelBadgeColor(log.level)}>
+                                    {log.level}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {log.source}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {log.message}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Log Stats */}
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <div className="grid grid-cols-4 gap-4 text-center">
+                        <div>
+                          <div className="text-sm font-medium">Total Logs</div>
+                          <div className="text-lg font-bold text-primary">
+                            {getCurrentLogs().length}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">Errors</div>
+                          <div className="text-lg font-bold text-destructive">
+                            {getCurrentLogs().filter(log => log.level === 'ERROR').length}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">Warnings</div>
+                          <div className="text-lg font-bold text-warning">
+                            {getCurrentLogs().filter(log => log.level === 'WARN').length}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">Info</div>
+                          <div className="text-lg font-bold text-success">
+                            {getCurrentLogs().filter(log => log.level === 'INFO').length}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowLogsDialog(false)}>
+                      Close
+                    </Button>
+                    <Button onClick={() => {
+                      // Export logs functionality
+                      const logs = getCurrentLogs();
+                      const blob = new Blob([JSON.stringify(logs, null, 2)], {
+                        type: "application/json"
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `system-logs-${selectedLogType}-${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}>
+                      <Download className="w-4 h-4 mr-2" />
+                      Export Logs
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </div>
